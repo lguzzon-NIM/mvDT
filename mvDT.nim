@@ -1,22 +1,36 @@
 
 import times
 import os
+import strutils
 
 template getNewPath(aPath: string): string =
   block getNewPath:
     let lPrefix = getFileInfo(aPath).lastWriteTime.format("yyyyMMdd-HHmm--")
     let (dir, name, ext) = splitFile(aPath)
-    joinPath(dir, lPrefix & name & ext)
+    var lOldName = name
+    var lSplit = name.split("--")
+    if lSplit.len > 1:
+      lOldName = lSplit[1 .. ^1].join()
+    let lNewPath = joinPath(dir, lPrefix & lOldName & ext)
+    lNewPath
+
 
 when isMainModule:
   when declared(paramStr):
     for i in 1..paramCount():
       let lParam = paramStr(i)
-      if fileExists(lParam):
-        moveFile(lParam, getNewPath(lParam))
-      elif dirExists(lParam):
-        moveDir(lParam, getNewPath(lParam))
+      if (let lFileExist = fileExists(lParam); let lExist = lFileExist or
+          dirExists(lParam); lExist):
+        let lNewPath = getNewPath(lParam)
+        if lParam != lNewPath:
+          if lFileExist:
+            moveFile(lParam, lNewPath)
+          else:
+            moveDir(lParam, getNewPath(lParam))
+          echo "'" & lParam & "' --> " & "'" & lNewPath & "'"
+        else:
+          echo "'" & lParam & "' name are OK !!!"
       else:
-        echo "'" & lParam & "' does not exist!!!"
+        echo "'" & lParam & "' is not a file or a directory!!!"
   else:
     echo "Error: not declared paramStr!!!"
