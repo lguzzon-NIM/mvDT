@@ -14,7 +14,6 @@ template getNewPath(aPath: string): string =
     let lNewPath = joinPath(dir, lPrefix & lOldName & ext)
     lNewPath
 
-
 when isMainModule:
   when declared(paramStr):
     for i in 1..paramCount():
@@ -22,14 +21,14 @@ when isMainModule:
       if (let lFileExist = fileExists(lParam); let lExist = lFileExist or
           dirExists(lParam); lExist):
         let lNewPath = getNewPath(lParam)
-        if lParam != lNewPath:
+        if lParam == lNewPath:
+          echo "'" & lParam & "' name are OK !!!"
+        else:
           if lFileExist:
             moveFile(lParam, lNewPath)
           else:
-            moveDir(lParam, getNewPath(lParam))
+            moveDir(lParam, lNewPath)
           echo "'" & lParam & "' --> " & "'" & lNewPath & "'"
-        else:
-          echo "'" & lParam & "' name are OK !!!"
       else:
         echo "'" & lParam & "' is not a file or a directory!!!"
   else:
