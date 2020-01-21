@@ -1,0 +1,15 @@
+*
+!**\.gitattributes
+!**\.gitignore
+!**\.md
+
+!/\.editorconfig
+!/\.travis\.yml
+!/config\.nims
+!/LICENSE
+!/scripts/
+!/tests/
+
+!/mvDT\.nim
+!/mvDT\.nimble
+!/mvDT/
