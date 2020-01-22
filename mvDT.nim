@@ -3,9 +3,11 @@ import times
 import os
 import strutils
 
+import mvDT/consts
+
 template getNewPath(aPath: string): string =
   block getNewPath:
-    let lPrefix = getFileInfo(aPath).lastWriteTime.format("yyyyMMdd-HHmm--")
+    let lPrefix = getFileInfo(aPath).lastWriteTime.format(cPrefix)
     let (dir, name, ext) = splitFile(aPath)
     var lOldName = name
     var lSplit = name.split("--")
@@ -22,14 +24,14 @@ when isMainModule:
           dirExists(lParam); lExist):
         let lNewPath = getNewPath(lParam)
         if lParam == lNewPath:
-          echo "'" & lParam & "' name are OK !!!"
+          echo cOKName%[lParam]
         else:
           if lFileExist:
             moveFile(lParam, lNewPath)
           else:
             moveDir(lParam, lNewPath)
-          echo "'" & lParam & "' --> " & "'" & lNewPath & "'"
+          echo cOKMoved%[lParam, lNewPath]
       else:
-        echo "'" & lParam & "' is not a file or a directory!!!"
+        echo cErrorIsNot%[lParam]
   else:
     echo "Error: not declared paramStr!!!"
