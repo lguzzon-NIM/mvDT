@@ -1,6 +1,6 @@
 
 # Package
-version      = "1.0.0" # PLEASE CHANGE ME
+version      = "1.0.1" # PLEASE CHANGE ME
 author       = "Luca Guzzon" # PLEASE CHANGE ME
 description  = "mvDT" # PLEASE CHANGE ME
 license      = "MIT"
