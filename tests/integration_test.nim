@@ -11,7 +11,7 @@ else:
   # import mvDT
   import mvDT/consts
 
-  include "../scripts/nim/scriptsEnvVarNames.nimInc"
+  include "../scripts/nim/scriptsEnvVarNames.nim"
 
   suite "integration-test suite":
     test "excecuting the app with no params":

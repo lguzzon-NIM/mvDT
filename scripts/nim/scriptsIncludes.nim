@@ -3,7 +3,7 @@ import strutils
 import sequtils
 from os import `/`, splitFile, ExeExt, DirSep
 
-include "scriptsEnvVarNames.nimInc"
+include "scriptsEnvVarNames.nim"
 
 
 const
@@ -38,6 +38,9 @@ const
   # switch "gc", "orc" ???
   gcGCDefault = "refc"
 
+
+var gReleaseOption = false
+
 proc getTargetOS (): string =
   if existsEnv(gcTargetOSEnvVarName):
     getEnv(gcTargetOSEnvVarName)
@@ -62,7 +65,7 @@ proc getAbi(): string =
   if existsEnv(gcABIEnvVarName):
     getEnv(gcABIEnvVarName)
   else:
-    if "windows" == getTargetOS():
+    if (gcWindowsStr == getTargetOS()):
       "gnu"
     else:
       "musl"
@@ -99,19 +102,27 @@ proc splitCmdLine (): tuple[options, command, params: string] =
   result.params = lResult.strip()
 
 
+proc getReleaseOption(): bool =
+  gReleaseOption = gReleaseOption or ("release" == splitCmdLine().params)
+  result = gReleaseOption
+
+proc setReleaseOption(aValue: bool): bool =
+  gReleaseOption = aValue
+  result = gReleaseOption
+
 proc getOsCpuCompilerName(): string =
   let lTargetCPU = getTargetCPU()
   case lTargetCPU
   of "js":
     result = "$1"%[lTargetCPU]
   else:
-    let lCC=getCC()
-    if gcZIG == lCC:
+    let lCC = getCC()
+    if (gcZIG == lCC):
       result = "$1-$2-$3-$4-$5"%[getTargetOS(), lTargetCPU, getABI(), lCC, getGC()]
     else:
       result = "$1-$2-$3-$4"%[getTargetOS(), lTargetCPU, lCC, getGC()]
-  if "release" == splitCmdLine().params:
-    result = "$1_release"%[result]
+  if getReleaseOption():
+    result = "$1-release"%[result]
 
 
 proc getBuildCacheDir (): string =
@@ -129,7 +140,7 @@ proc getBuildTargetTestDir (): string =
 proc getNameFromDir(aPath: string): string =
   result = aPath.splitFile.name
   let lRFind = result.rFind({'-'})
-  if lRFind > -1:
+  if (lRFind > -1):
     result.delete(lRFind, result.len.pred())
 
 
@@ -153,7 +164,7 @@ proc getBinaryFileExt (): string =
     # Check it with this command line: nim --putenv:NIM_VERBOSITY="3" --putenv:NIM_TARGET_CPU="js" CTest
     ".js"
   else:
-    if (getTargetOS() == gcWindowsStr):
+    if (gcWindowsStr == getTargetOS()):
       ".exe"
     else:
       ""
@@ -186,7 +197,7 @@ template dependsOn (tasks: untyped) =
 
 proc build_create () =
   for Dir in @[getBuildCacheDir(), gcBuildTargetDir, getBuildTargetTestDir()]:
-    if not dirExists(Dir):
+    if (not dirExists(Dir)):
       mkdir Dir
 
 
@@ -246,9 +257,12 @@ popd >/dev/null
     switch "cc", lCC
   case lCC
   of gcGCC:
-    switch "passL", "-static"
+    switch "passL", "-static -no-pie"
   of gcZIG:
-    switch "passL", "-static"
+    switch "passL", "-static -no-pie"
+    if (gcWindowsStr == getTargetOS()):
+      switch "clang.options.linker", ""
+      switch "clang.cpp.options.linker", ""
   else:
     discard
 
@@ -258,7 +272,7 @@ proc switchCommon () =
   switch "verbosity", lNimVerbosity
   setCC()
   switch "gc", getGC()
-  if ("release" == splitCmdLine().params):
+  if getReleaseOption():
     switch "define", "release"
     switch "define", "danger"
     switch "define", "quick"
@@ -326,16 +340,16 @@ proc getLatestTagOfGitRepo(aRepoUrl: string): string =
   result = ""
   for lString in lExec.output.splitlines:
     let lTag = lString.rsplit('/', 1)
-    if lTag.len > 1:
-      if not lTag[1].contains('^'):
+    if (lTag.len > 1):
+      if (not lTag[1].contains('^')):
         let lNumbers = lTag[1].split('.')
         var lNumberStr = ""
         for lIndex in 0..5:
-          if lIndex < lNumbers.len:
+          if (lIndex < lNumbers.len):
             lNumberStr &= lNumbers[lIndex].align(8, '0')
           else:
             lNumberStr &= "".align(8, '0')
-        if lNumberStr > lMaxTagStr:
+        if (lNumberStr > lMaxTagStr):
           lMaxTagStr = lNumberStr
           result = lTag[1]
 
@@ -361,7 +375,10 @@ task Tasks, "list all tasks":
 task Settings, "display all settings":
   let lCC = getCC()
   let lABI =
-    if gcZIG == lCC: "  Using ABI   : [$1] <- $$$2\n" % [getAbi(), gcABIEnvVarName] else: "\n"
+    if (gcZIG == lCC):
+      "  Using ABI   : [$1] <- $$$2\n" % [getAbi(), gcABIEnvVarName]
+    else:
+      "\n"
   let lInfos = """
   Interpreter : [$1]
   Version     : [$7]
@@ -396,7 +413,7 @@ task CreateNew, "create a new project from " & "n" & "imTemplate":
   proc checkProjectName(aProjectName: string, aValidCharSet: set[char]): bool =
     result = true
     for lChar in aProjectName:
-      if not (lChar in aValidCharSet):
+      if (not (lChar in aValidCharSet)):
         result = false
         break
 
@@ -408,13 +425,13 @@ task CreateNew, "create a new project from " & "n" & "imTemplate":
       for lFilePath in listFiles(lDirPath):
         let lOldString = lFilePath.splitFile
         let lNewString = lOldString.name.replace(lString, aNewProjectName)
-        if lNewString != lOldString.name:
+        if (lNewString != lOldString.name):
           lFSItemsToMove.add((lFilePath, lOldString.dir / lNewString &
               lOldString.ext))
     for lDirPath in Dirs(aProjectDir):
       let lOldString = lDirPath.splitFile
       let lNewString = lOldString.name.replace(lString, aNewProjectName)
-      if lNewString != lOldString.name:
+      if (lNewString != lOldString.name):
         lFSItemsToMove.add((lDirPath, lOldString.dir / lNewString &
             lOldString.ext))
     for lToMove in lFSItemsToMove:
@@ -423,16 +440,16 @@ task CreateNew, "create a new project from " & "n" & "imTemplate":
       for lFilePath in listFiles(lDirPath):
         let lOldString = lFilePath.readFile
         let lNewString = lOldString.replace(lString, aNewProjectName)
-        if lNewString != lOldString:
+        if (lNewString != lOldString):
           lFilePath.writeFile(lNewString)
 
   let lNewProjectName = splitCmdLine().params
   let lValidCharSet = {'a' .. 'z', 'A' .. 'Z', '0' .. '9', '_'}
   let lParentDir = thisDir() / ".."
-  if lNewProjectName == "":
+  if ("" == lNewProjectName):
     echo "Please provide new project name as param"
     return
-  if not checkProjectName(lNewProjectName, lValidCharSet):
+  if (not checkProjectName(lNewProjectName, lValidCharSet)):
     echo "Please provide a project name not containing invalid chars $1"%["{'a'..'z', 'A'..'Z', '0'..'9', '_'}"]
     return
   let lNewProjectDir = lParentDir / lNewProjectName
@@ -475,6 +492,8 @@ task CompileAndRunTest_OSLinux_OSWindows, "":
 task CompileAndRunTest, "":
   let lFilePath = lcTestAppFileNameEnvVarName.getEnv()
   switchCommon()
+  if (gcLinuxStr == getTargetOS()):
+    switch "threads", "on"
   switch "path", getSourceDir()
   switch "nimcache", getBuildCacheTestDir()
   switch "out", getTestBinaryFilePath(lFilePath)
@@ -490,7 +509,7 @@ task Test, "test/s the project":
     var lCommandToExec = "CompileAndRunTest"
     case hostOS
     of gcLinuxStr:
-      if (getTargetOS() == gcWindowsStr):
+      if (gcWindowsStr == getTargetOS()):
         lCommandToExec = "CompileAndRunTest_OSLinux_OSWindows"
     selfExecWithDefaults("\"--putenv:$1=$2\" $3"%[lcTestAppFileNameEnvVarName,
         lFilePath, lCommandToExec])
@@ -509,12 +528,12 @@ task BuildBinary, "":
 
 
 task Build, "build the project":
-  if not fileExists(getBuildBinaryFilePath()):
+  if (not fileExists(getBuildBinaryFilePath())):
     dependsOn BuildBinary
     if ("js" == getTargetCPU()):
       discard
     else:
-      if ("release" == splitCmdLine().params):
+      if getReleaseOption():
         exec "strip --strip-all " & getBuildBinaryFilePath()
         exec "upx --best " & getBuildBinaryFilePath()
 
@@ -524,16 +543,27 @@ task CBuild, "clean and build the project":
 
 
 task BuildToDeploy, "build the project ready to deploy":
-  selfExecWithDefaults("--passC:-O4 --passL:-static Test release")
+  var lDeploy = ""
+  let lCC = getCC()
+  if (gcZIG == lCC):
+    lDeploy &= "\"--clang.options.speed=" & get("clang.options.speed").replace("-O3", "-O4") & "\" "
+  else:
+    lDeploy &= "\"--gcc.options.speed=" & get("gcc.options.speed").replace("-O3", "-O4") & "\" "
+  lDeploy &= "Test release"
+  selfExecWithDefaults(lDeploy)
 
 
 task CBuildToDeploy, "clean and build the project ready to deploy":
-  selfExecWithDefaults("--passC:-O4 --passL:-static CTest release")
+  dependsOn Clean BuildToDeploy
 
 
 task Run, "run the project ex: nim --putenv:runParams=\"<Parameters>\" run":
   dependsOn Build
-  let params = if existsEnv("runParams"): " " & getEnv("runParams") else: ""
+  let params =
+    if existsEnv("runParams"):
+      " " & getEnv("runParams")
+    else:
+      ""
   let command = ((if ("js" == getTargetCPU()):
     "node "
   else:
@@ -547,7 +577,7 @@ task CRun, "clean and run the project ex: nim --putenv:runParams=\"<Parameters>\
 
 
 task UpdateScript, "update this script to latest release in " & "n" & "imTemplate [uses svn on github]":
-  let lFromScript = "scripts/nim/scriptsIncludes.nimInc"
+  let lFromScript = "scripts/nim/scriptsIncludes.nim"
   lFromScript.cpFile(lFromScript & "_OLD")
   exec("svn export --force \"$1/tags/$2/$3\" \"$3\""%[gcRepoURL,
       getLatestTagOfGitRepo(gcRepoURL), lFromScript])
@@ -583,7 +613,7 @@ task Util_TravisEnvMat, "generate the complete travis-ci env matrix":
     lResult = ""
 
   proc lGetEnvValue(aResult: string, aIndex: int) =
-    if aIndex <= lEnvsHigh:
+    if (aIndex <= lEnvsHigh):
       var lHeader = aResult
       lHeader.addSep(" ")
       lHeader &= lEnvs[aIndex][0] & "="
@@ -596,8 +626,8 @@ task Util_TravisEnvMat, "generate the complete travis-ci env matrix":
   echo lResult
 
 
-task FormatSourceFiles, "Format source files using nimpretty":
-  if gorgeEx("nimpretty --version").exitCode != 0:
+task FormatSourceFiles, "format source files using nimpretty":
+  if (gorgeEx("nimpretty --version").exitCode != 0):
     echo "Error nimpretty not present in path!!!"
   else:
     var lFilesToFormat: seq[string] = @[]
@@ -624,8 +654,8 @@ task FormatSourceFiles, "Format source files using nimpretty":
         echo lExec.output
 
 
-task FormatShfmtFiles, "Format shfmt files":
-  if gorgeEx("shfmt -version").exitCode != 0:
+task FormatShfmtFiles, "format shfmt files":
+  if (gorgeEx("shfmt -version").exitCode != 0):
     echo "Error shfmt not present in path!!!"
   else:
     let lCurrentDir = getCurrentDir()
@@ -646,8 +676,8 @@ task FormatShfmtFiles, "Format shfmt files":
           echo lExec.output
 
 
-task FormatYamlFiles, "Format yaml files using yq":
-  if gorgeEx("yq --version").exitCode != 0:
+task FormatYamlFiles, "format yaml files using yq":
+  if (gorgeEx("yq --version").exitCode != 0):
     echo "Error yq not present in path!!!"
   else:
     var lFilesToFormat: seq[string] = @[]
@@ -674,15 +704,12 @@ task FormatYamlFiles, "Format yaml files using yq":
         echo lExec.output
 
 
-task CheckProject, "Project checking ...":
-  dependsOn Settings
-  dependsOn NInstallDeps
+task CheckProject, "project checking ...":
+  dependsOn Settings NInstallDeps
   build_create()
   switchCommon()
   setCommand "check", getSourceMainFile()
 
 
-task Lint, "Project linting ...":
-  dependsOn CheckProject
-  dependsOn FormatSourceFiles
-  dependsOn FormatShfmtFiles
+task Lint, "project linting ...":
+  dependsOn CheckProject FormatSourceFiles FormatShfmtFiles
