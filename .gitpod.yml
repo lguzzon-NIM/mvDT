@@ -1,0 +1,6 @@
+image:
+  file: .gitpod.Dockerfile
+
+vscode:
+  extensions:
+    - nimsaem.nimvscode@0.1.16:5df744ebcb73636f584b27e76f226086
