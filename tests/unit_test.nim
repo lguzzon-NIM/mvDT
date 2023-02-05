@@ -6,5 +6,5 @@ import unittest
 
 
 suite "unit-test suite":
-    test "UnitTest - not needed":
-        assert(true == true)
+  test "UnitTest - not needed":
+    assert(true == true)

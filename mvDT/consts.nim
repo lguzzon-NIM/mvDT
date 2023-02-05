@@ -1,5 +1,5 @@
 
-const 
+const
   cDateTimeFormat = "yyyyMMdd-HHmm"
   cPrefixSeparator = "--"
   cPrefix* = cDateTimeFormat & cPrefixSeparator
